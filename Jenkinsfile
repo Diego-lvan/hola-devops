@@ -1,21 +1,70 @@
+
+
 pipeline {
     agent any
 
     stages {
-        stage('Estandar de codigo') {
+        stage('Init') {
             steps {
-                echo 'Building..'
+                echo 'Asignando workspace y validando entorno.'
+            }
+        }
+        stage('Estándar de código') {
+            steps {
+                sh '''
+                # Cambiar al directorio del proyecto
+                cd calculadora
+
+
+                # Activar el entorno virtual
+                .    ~/env/bin/activate
+
+                # Ejecutar pruebas
+                flake8 .
+                '''
             }
         }
         stage('Pruebas unitarias') {
             steps {
-                echo 'Testing..'
+                sh '''
+                # Cambiar al directorio del proyecto
+                cd calculadora
+
+
+                # Activar el entorno virtual
+                .    ~/env/bin/activate
+
+                # Ejecutar pruebas
+                python test_calculadora.py
+                '''
             }
         }
-        stage('Deploy') {
-            steps {
-                echo 'Deploying....'
+
+    }
+    post {
+       always {
+            script {
+                if (env.WORKSPACE) {
+                    cleanWs()
+                } else {
+                    echo 'No hay WORKSPACE activo, se omite cleanWs().'
+                }
             }
+        }
+        failure {
+            emailext (
+                to: 'dcorreanavarrete@gmail.com',
+                subject: "¡FALLO en el Pipeline! ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
+                body: """El pipeline ${env.JOB_NAME} (Build #${env.BUILD_NUMBER}) ha fallado en la etapa: ${env.STAGE_NAME}.
+                       Por favor, revisa los logs para identificar la causa del problema: ${env.BUILD_URL}"""
+            )
+        }
+        success {
+            emailext (
+                to: 'dcorreanavarrete@gmail.com',
+                subject: "Pipeline Exitoso: ${env.JOB_NAME} - Build ${env.BUILD_NUMBER}",
+                body: "El pipeline ${env.JOB_NAME} (Build #${env.BUILD_NUMBER}) se ha completado exitosamente."
+            )
         }
     }
 }
